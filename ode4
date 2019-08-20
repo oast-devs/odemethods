@@ -1,0 +1,42 @@
+/* One-step explicit method for ODE integration (4th order Runge-Kutta Method) */
+#include<stdio.h>
+
+/* Sample differential equation: dy/dx = (x - y)/2; */
+double odefun(double x, double y)
+{
+    return((x - y)/2);
+}
+
+/* Euler Method: y is estimated for each given x using a fixed step h and the knowledge of initial conditions y0 and x0  */
+
+double ode4(double x0, double y0, double x, double h)
+{
+/* Computing number of steps to perform using interval length and step height h */
+int numpoints = (int)((x - x0)/(h));
+int i;
+double y;
+double k1, k2, k3, k4;
+
+y = y0; /* Loop Initialization  */
+for (i = 0; i <= numpoints; i++) {
+    /* Computing k values */
+    k1 = odefun(x0,y);
+    k2 = odefun(x0 + (h/2.0),y + h*(k1/2.0));
+    k3 = odefun(x0 + (h/2.0),y + h*(k2/2.0));
+    k4 = odefun(x0 + h,y + h*k3);
+    /* Updating y value (from y(x) to y(x+h)) */
+    y = y + (h/6.0)*(k1 + 2.0*k2 + 2.0*k3 + k4);
+    /* Updating x value */
+    x0 = x0 + h;
+}
+return y;
+}
+
+/* Test main */
+int main() 
+{ 
+    double x0 = 0, y0 = 1, x = 2, h = 0.02; 
+    printf("\nThe value of y at x is : %f", 
+            ode4(x0, y0, x, h)); 
+    return 0; 
+} 
