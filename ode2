@@ -1,7 +1,7 @@
 /* One-step explicit method for ODE integration (aka Euler Method) */
 #include<stdio.h>
 
-/* Sample differential equation: dy/dx = (A/B)*(xy); */
+/* Sample differential equation: dy/dx = (x - y)/2; */
 double odefun(double x, double y)
 {
     return((x - y)/2);
