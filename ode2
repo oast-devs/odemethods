@@ -1,27 +1,27 @@
 /* One-step explicit method for ODE integration (aka Euler Method) */
 #include<stdio.h>
 
-/* Sample differential equation: dy/dx = 2x + 3y; */
+/* Sample differential equation: dy/dx = (A/B)*(xy); */
 double odefun(double x, double y)
 {
-    return(2*x + 3*y);
+    return((x - y)/2);
 }
 
-/* Heun Method: y is estimated for each given x using a fixed step h and the knowledge of initial conditions y0 and x0  */
-/* Two functional evaluations are performed (the method is a second order method). */
+/* Euler Method: y is estimated for each given x using a fixed step h and the knowledge of initial conditions y0 and x0  */
 
 double ode2(double x0, double y0, double x, double h)
 {
 /* Computing number of steps to perform using interval length and step height h */
 int numpoints = (int)((x-x0)/(h));
 int i;
+double y;
 
-double y = y0; /* Loop Initialization  */
-for (i = 0; i <= numpoints; ++i) {
+y = y0; /* Loop Initialization  */
+for (i = 0; i <= numpoints; i++) {
     /* Updating y value (from y(x) to y(x+h)) */
-    y = y0 + h/2*(odefun(x0,y0) + odefun(x0 + h,y0 + h*odefun(x0,y0)));
+    y = y + h/2.0*(odefun(x0,y) + odefun(x0 + h,y + h*odefun(x0,y)));
     /* Updating x value */
-    x = x0 + h;
+    x0 = x0 + h;
 }
 return y;
 }
@@ -29,8 +29,8 @@ return y;
 /* Test main */
 int main() 
 { 
-    double x0 = 0, y0 = 1, x = 2, h = 0.2; 
+    double x0 = 0, y0 = 1, x = 2, h = 0.000002; 
     printf("\nThe value of y at x is : %f", 
             ode2(x0, y0, x, h)); 
     return 0; 
-} 
+}
