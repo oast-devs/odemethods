@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "ODE1.h"
+#include "ODE_methods.h"
 
 double fnc_to_be_integrated(double t, double x)
 {
