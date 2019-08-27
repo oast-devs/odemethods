@@ -18,13 +18,74 @@
  * il primo dettaglio che vorrei evidenziare è il double **output.
  * si tratta di un puntatore ad un puntatore. Un puntatore ad un puntatore
  * può essere visto come il puntatore al puntatore di un'area di memoria, quindi come 
- * l'indirizzo di un vettore di elementi. Il doppio puntatore serve perché noi non possiamo
+ * l'indirizzo di un vettore di elementi. 
+ *
+ * esempio: double * a = malloc(5 * sizeof(double))
+ * crea un'area di memoria  di dimensione 5 |__|__|__|__|__|
+ * il puntatore a punta alla prima cella:
+ *    a --> |__|__|__|__|__|
+ *
+ * l'elemento *a è quindi il valore nella prima cella:
+ *   |*a|__|__|__|__|
+ *
+ * oppure *(a+1) o a[1] puntano alla seconda cella
+ *   |__|a[1]|__|__|__|
+ *
+ * l'operazione *a si chiama dereferenziazione e indica l'operazione
+ * di prendere il valore di un indirizzo. Altre operazioni sono:
+ * - incremento di puntatore: a + 1 è l'indirizzo della seconda cella
+ *     |__|__|__|__|__|
+ *			^ 
+ *          | 
+ *        a + 1
+ *
+ * - indirizzo di una variabile: &a ritorna l'indirizzo alla cella di memoria
+ *   che contiene una variabile. Sia a = 5, &a è l'indirizzo della cella di memoria
+ *   che contiene 5
+ *
+ * Ora l'utilizzo principale dei puntatori come argomento di funzione è quello di
+ * modificare il valore di una variabile anche fuori dalla funzione. Ad esempio
+ *    void function(int * a) { *a = 5; }
+ * permette anche al chiamante di vedere la modifica a = 5. Questo perché alla funzione
+ * viene passato un indirizzo di memoria e NON un valore. Andando a scrivere dentro
+ * all'indirizzo, quando si esce dalla funzione si trova il valore modificato. Quindi
+ * sia che facciamo:
+ *   int a = 3;
+ *   function(&a);
+ *   printf("%d\n", a); // print 5
+ *
+ * sia che facciamo:
+ *   int * a;
+ *   *a = 3;
+ *   function(a);
+ *   printf("%d\n"); // print 5
+ *
+ * otteniamo lo stesso identico risultato. In entrambi i casi la funzione ha scritto 
+ * in un'area di memoria puntata da un indirizzo, quindi quell'area viene modificata
+ * per tutto il programma
+ *
+ * Il doppio puntatore serve perché noi non possiamo
  * conoscere da principio la dimensione dell'output del problema (che invece ritorniamo
  * come valore di ritorno della funzione) ma riallochiamo la dimensione del vettore
  * all'interno della funzione stessa.
  * Per far si che possiamo correttamente riallocare il vettore e rendere visibile la
- * modifica al di fuori della funzione ODE, abbiamo bisogno di un doppio puntatore
- * che conterrà quindi l'indirizzo al nuovo vettore di output creato durante l'integrazione.
+ * modifica al di fuori della funzione ODE, dobbiamo modificare non solo il contenuto
+ * del vettore, ma anche il suo indirizzo (quando allochiamo con malloc, il sistema
+ * operativo ci ritorna un indirizzo all'area di memoria allocata). Da questo la
+ * necessità del doppio puntatore.
+ *
+ * in questo caso:
+ * double ** a è l'indirizzo all'indirizzo dell'array
+ *
+ *   a --> *a --> NULL
+ *
+ * ora passiamo alla malloc *a, cioè il puntatore all'area di memoria che vogliamo allocare
+ * in questo modo:
+ *   *a = malloc(...)
+ *
+ *   a --> *a --> |__|__|__|__| ... |__|
+ *
+ * abbiamo scritto nell'INDIRIZZO puntato da a l'INDIRIZZO di un vettore appena allocato.
  *
  * L'altro dettaglio interessante è l'utilizzo di un puntatore a funzione.
  * Questo puntatore funziona similmente agli handle di matlab. In questo modo
@@ -80,7 +141,7 @@ int ODE1(double x0, double t, double stepsize, double **output, double(*fnc_ptr)
 	int nsteps = (int) nsteps_tmp;
 	
 	// Alloco il vettore di output in base alla dimensione
-	// del problema
+	// del problema e lo scrivo nell'indirizzo di output
 	*output = malloc(nsteps * sizeof(double));
 	if(*output == NULL) {
 		fprintf(stderr, "Error: system memory is unavailable\n");
