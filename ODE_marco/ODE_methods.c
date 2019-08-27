@@ -35,7 +35,7 @@
  * di prendere il valore di un indirizzo. Altre operazioni sono:
  * - incremento di puntatore: a + 1 è l'indirizzo della seconda cella
  *     |__|__|__|__|__|
- *			^ 
+ *          ^ 
  *          | 
  *        a + 1
  *
