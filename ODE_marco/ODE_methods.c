@@ -158,3 +158,104 @@ int ODE1(double x0, double t, double stepsize, double **output, double(*fnc_ptr)
 	// ritorno il numero di step del problema
 	return nsteps;
 }
+
+
+int ODE1_3D(double x0[3], double t, double stepsize, double **output, void(*fnc_ptr)(double, double, double *))
+{
+	// controllo che tutti gli ingressi abbiano valori accettabili
+	if(t < 0){
+		fprintf(stderr, "Error, invalid time t\n");
+		return -1;
+	}
+	
+	if(stepsize <= 0) {
+		fprintf(stderr, "Error, step size should be > 0\n");
+		return -1;
+	}
+	
+	if(output == NULL){
+		fprintf(stderr, "Error, invalid output vector\n");
+		return -1;
+	}
+	
+	if(fnc_ptr == NULL) {
+		fprintf(stderr, "Error, invalid ODE function\n");
+		return -1;
+	}
+	
+	// Calcolo il numero di step del problema, verificando
+	// che sia fattibile
+	double nsteps_tmp = t / stepsize;
+	if(nsteps_tmp > (double) INT_MAX){
+		fprintf(stderr, "Error: intregration step is too small\n");
+		return -1;
+	}
+	
+	int nsteps = (int) nsteps_tmp;
+	
+	// Alloco il vettore di output in base alla dimensione
+	// del problema e lo scrivo nell'indirizzo di output
+	*output = malloc(3 * nsteps * sizeof(double));
+	if(*output == NULL) {
+		fprintf(stderr, "Error: system memory is unavailable\n");
+		return -1;
+	}
+	
+	double * step_tmp = malloc(3 * sizeof(double));
+	if(step_tmp == NULL) {
+		fprintf(stderr, "Error: system memory is unavailable\n");
+		return -1;
+	}
+	
+	// Metodo di Eulero:
+	memcpy(*output, x0, 3 * sizeof(double));
+	memset(step_tmp, 0, 3 * sizeof(double));
+	
+	double * v_in;
+	double * v_out;
+	for(int i = 1; i < nsteps; i++) {
+		(*fnc_ptr)(i * stepsize, (*output)[3 * (i - 1)], step_tmp);
+		
+		// This vector manipulation is used to prepare vectorization
+		
+		v_in = (*output) + 3 * (i - 1);
+		v_out = v_in + 3;
+		
+		/* the unroll procedure is used to prepare vectorization.
+		 * the auto-vectorization is requested to the compiler, so
+		 * no explicit instructions are needed. However in order to
+		 * perform a successfull SIMD set compilation, the for loop
+		 * must be unrolled and the operations must be simple.
+		 *
+		 * With AVX and SSE instruction sets, only 2 doubles can be
+		 * operated at the same time, this means that the two for loop 
+		 * will be completed in 4 operations instead of 6
+		 *
+		 * with AVX2 and SSE3 instruction sets, up to 4 doubles can be
+		 * operated at the same time, this means that the two for loop
+		 * will be completed in 2 operations instead of 6.
+		 *
+		 * Moreover this allow us to work with quaternions in 4 operation
+		 * as a future developement.
+		 *
+		 * Refer to the make file to enable SIMD compilation of the code
+		 */
+		#pragma unroll(3)
+		#pragma simd
+		for(int j = 0; j < 3; j++) {
+			step_tmp[j] = step_tmp[j] * stepsize;
+		}
+		
+		/* the output vector will be formatted in the following way:
+		 * |t0_x0|t0_x1|t0_x2|t1_x0|t1_x1|t1_x2| ... |tn_x0|tn_x1|tn_x2|
+		 */
+		
+		#pragma unroll(3)
+		#pragma simd
+		for(int j = 0; j < 3; j++) {
+			v_out[j] = v_in[j] + step_tmp[j];
+		}
+	}
+	// ritorno il numero di step del problema
+	return nsteps;
+}
