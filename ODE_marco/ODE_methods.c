@@ -160,7 +160,7 @@ int ODE1(double x0, double t, double stepsize, double **output, double(*fnc_ptr)
 }
 
 
-int ODE1_3D(double x0[3], double t, double stepsize, double **output, void(*fnc_ptr)(double, double, double *))
+int ODE1_3D(double x0[3], double t, double stepsize, double **output, void(*fnc_ptr)(double, double *, double *))
 {
 	// controllo che tutti gli ingressi abbiano valori accettabili
 	if(t < 0){
@@ -193,33 +193,48 @@ int ODE1_3D(double x0[3], double t, double stepsize, double **output, void(*fnc_
 	
 	int nsteps = (int) nsteps_tmp;
 	
-	// Alloco il vettore di output in base alla dimensione
-	// del problema e lo scrivo nell'indirizzo di output
-	*output = malloc(3 * nsteps * sizeof(double));
+	/* the output vector is allocated. The real size of the
+	 * output is not 3 * # steps but is 4 * # steps. This will
+	 * allow the use of 32byte vectorization at the cost of a
+	 * greater memory usage. The wasted memory is 
+	 * nsteps * sizeof(double). 
+	 *
+	 * NOTE: the ALIGN_SIZE macro can be set to 3 if 32BYTE_VECTORIZATION
+	 * macro is disabled
+	 */
+	*output = malloc(ALIGN_SIZE * nsteps * sizeof(double));
 	if(*output == NULL) {
 		fprintf(stderr, "Error: system memory is unavailable\n");
 		return -1;
 	}
 	
-	double * step_tmp = malloc(3 * sizeof(double));
+	double * step_tmp = malloc(4 * sizeof(double));
 	if(step_tmp == NULL) {
 		fprintf(stderr, "Error: system memory is unavailable\n");
 		return -1;
 	}
 	
-	// Metodo di Eulero:
+	// Memory initialization. In the *output vector the first three
+	// points are set as the x0 values
 	memcpy(*output, x0, 3 * sizeof(double));
-	memset(step_tmp, 0, 3 * sizeof(double));
-	
+	// then the step vector is initialized with 0s. Is important to
+	// initialize the whole vector (expecially if its size is 4 due
+	// to alignment purposes, to avoid getting random numbers in the
+	// output)
+	memset(step_tmp, 0, ALIGN_SIZE * sizeof(double));
+
+	// vectorization helper pointers are created here.
 	double * v_in;
 	double * v_out;
 	for(int i = 1; i < nsteps; i++) {
-		(*fnc_ptr)(i * stepsize, (*output)[3 * (i - 1)], step_tmp);
 		
-		// This vector manipulation is used to prepare vectorization
+		// This vector manipulation is used to prepare vectorization.
+		// It seems that gcc does not like working with double pointers
+		// when trying to vectorize
+		v_in = (*output) + nextindex(i - 1);
+		v_out = v_in + ALIGN_SIZE;
 		
-		v_in = (*output) + 3 * (i - 1);
-		v_out = v_in + 3;
+		(*fnc_ptr)(i * stepsize, v_in, step_tmp);
 		
 		/* the unroll procedure is used to prepare vectorization.
 		 * the auto-vectorization is requested to the compiler, so
@@ -235,27 +250,29 @@ int ODE1_3D(double x0[3], double t, double stepsize, double **output, void(*fnc_
 		 * operated at the same time, this means that the two for loop
 		 * will be completed in 2 operations instead of 6.
 		 *
-		 * Moreover this allow us to work with quaternions in 4 operation
+		 * Moreover this allow us to work with quaternions in 2 operation
 		 * as a future developement.
 		 *
 		 * Refer to the make file to enable SIMD compilation of the code
 		 */
-		#pragma unroll(3)
+		#pragma unroll(4)
 		#pragma simd
-		for(int j = 0; j < 3; j++) {
+		for(int j = 0; j < ALIGN_SIZE; j++) {
 			step_tmp[j] = step_tmp[j] * stepsize;
 		}
 		
 		/* the output vector will be formatted in the following way:
-		 * |t0_x0|t0_x1|t0_x2|t1_x0|t1_x1|t1_x2| ... |tn_x0|tn_x1|tn_x2|
+		 * |t0_x0|t0_x1|t0_x2|EMPTY|t1_x0|t1_x1|t1_x2|EMPTY| ... |tn_x0|tn_x1|tn_x2|EMPTY|
+		 * the EMPTY element is used to perform 32byte vector alignment.
+		 * this will be used to perform 4 operations at time
 		 */
 		
-		#pragma unroll(3)
+		#pragma unroll(4)
 		#pragma simd
-		for(int j = 0; j < 3; j++) {
+		for(int j = 0; j < ALIGN_SIZE; j++) {
 			v_out[j] = v_in[j] + step_tmp[j];
 		}
 	}
-	// ritorno il numero di step del problema
+	// The return value is the number of steps performed (that is size of output / ALIGN_SIZE)
 	return nsteps;
 }
